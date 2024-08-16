@@ -9,6 +9,7 @@ AUnitSelectionManager::AUnitSelectionManager()
 {
 }
 
+
 void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerController, bool bIsCtrlPressed)
 {
     if (PlayerController)
@@ -26,9 +27,14 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
             FCollisionQueryParams Params;
             Params.AddIgnoredActor(this);
 
-            if (GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params))
+            // Добавляем отладочную линию
+            GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params);
+            DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Red, false, 2.0f, 0, 1.0f);
+
+            if (HitResult.bBlockingHit)
             {
                 AActor* HitActor = HitResult.GetActor();
+                UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *HitActor->GetName());
 
                 if (HitActor && HitActor->Implements<USelectable>())
                 {
@@ -36,10 +42,8 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
 
                     if (bIsCtrlPressed)
                     {
-                        // Если Ctrl нажат, добавляем или убираем юнит из выделения
                         if (SelectedUnits.Contains(HitActor))
                         {
-                            // Снимаем выделение, если юнит уже был выделен
                             if (SelectableInterface)
                             {
                                 SelectableInterface->OnDeselected();
@@ -48,7 +52,6 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
                         }
                         else
                         {
-                            // Выделяем новый юнит
                             if (SelectableInterface)
                             {
                                 SelectableInterface->OnSelected();
@@ -58,10 +61,8 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
                     }
                     else
                     {
-                        // Если Ctrl не нажат, снимаем выделение со всех остальных юнитов
                         DeselectAllUnits();
 
-                        // Выделяем новый юнит
                         if (SelectableInterface)
                         {
                             SelectableInterface->OnSelected();
@@ -71,14 +72,12 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
                 }
                 else
                 {
-                    // Если кликаем на пустую область, снимаем выделение
                     DeselectAllUnits();
                 }
             }
         }
     }
 }
-
 void AUnitSelectionManager::DeselectAllUnits()
 {
     for (AActor* Unit : SelectedUnits)
@@ -93,4 +92,15 @@ void AUnitSelectionManager::DeselectAllUnits()
         }
     }
     SelectedUnits.Empty(); // Очищаем список выделенных юнитов
+}
+void AUnitSelectionManager::MoveSelectedUnitsToLocation(const FVector& TargetLocation)
+{
+    for (AActor* Unit : SelectedUnits)
+    {
+        AUnit* UnitToMove = Cast<AUnit>(Unit);
+        if (UnitToMove)
+        {
+            UnitToMove->MoveToLocation(TargetLocation);
+        }
+    }
 }

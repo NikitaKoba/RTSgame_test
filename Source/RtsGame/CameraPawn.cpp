@@ -67,6 +67,7 @@ void ARTSCameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
     PlayerInputComponent->BindAxis("MoveForward", this, &ARTSCameraPawn::MoveForward);
     PlayerInputComponent->BindAxis("MoveRight", this, &ARTSCameraPawn::MoveRight);
     PlayerInputComponent->BindAction("SelectUnit", IE_Pressed, this, &ARTSCameraPawn::SelectUnit);
+    PlayerInputComponent->BindAction("MoveUnit", IE_Pressed, this, &ARTSCameraPawn::MoveSelectedUnits); // Новая привязка для ПКМ
 }
 
 void ARTSCameraPawn::SelectUnit()
@@ -106,6 +107,31 @@ void ARTSCameraPawn::ZoomIn()
             TargetLocation.Z = FMath::Clamp(TargetLocation.Z, MinZoomHeight, MaxZoomHeight);
 
             SetActorLocation(TargetLocation);
+        }
+    }
+}
+void ARTSCameraPawn::MoveSelectedUnits()
+{
+    if (PlayerController)
+    {
+        FVector2D MousePosition;
+        if (PlayerController->GetMousePosition(MousePosition.X, MousePosition.Y))
+        {
+            FVector WorldLocation, WorldDirection;
+            PlayerController->DeprojectScreenPositionToWorld(MousePosition.X, MousePosition.Y, WorldLocation, WorldDirection);
+
+            FVector TraceStart = WorldLocation;
+            FVector TraceEnd = WorldLocation + (WorldDirection * 10000.0f);
+
+            FHitResult HitResult;
+            FCollisionQueryParams Params;
+            Params.AddIgnoredActor(this);
+
+            if (GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params))
+            {
+                FVector HitLocation = HitResult.Location;
+                UnitSelectionManager->MoveSelectedUnitsToLocation(HitLocation);
+            }
         }
     }
 }

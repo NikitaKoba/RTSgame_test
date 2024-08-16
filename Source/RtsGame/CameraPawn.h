@@ -57,6 +57,7 @@ protected:
 private:
 	void MoveCamera(const FVector2D& Direction);
 	void ZoomIn();
+	void MoveSelectedUnits();
 	void ZoomOut();
 	void MoveForward(float Value);
 	void MoveRight(float Value);
