@@ -1,5 +1,6 @@
 #include "UnitSelectionManager.h"
 #include "Selectable.h"
+#include "Unit.h"
 #include "Engine/HitResult.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"

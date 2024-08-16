@@ -15,8 +15,8 @@ public:
 	void SelectUnitAtMousePosition(APlayerController* PlayerController, bool bIsCtrlPressed); // Добавлен параметр для состояния Ctrl
 	TArray<AActor*> GetSelectedUnits() const { return SelectedUnits; } // Добавляем метод
 
-
 private:
 	TArray<AActor*> SelectedUnits;
-	void DeselectAllUnits(); 
+	void DeselectAllUnits();
+
 };

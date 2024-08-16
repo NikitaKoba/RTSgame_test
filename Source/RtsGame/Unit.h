@@ -17,22 +17,16 @@ class RTSGAME_API AUnit : public APawn, public ISelectable
 
 public:
 	AUnit();
-
 	virtual void OnSelected() override;
 	virtual void OnDeselected() override;
-	void MoveToLocation(const FVector& Location);
 
 protected:
 	virtual void BeginPlay() override;
-
 private:
 	UMaterialInstanceDynamic* DynamicMaterialInstance;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Selection", meta = (AllowPrivateAccess = "true"))
 	UBillboardComponent* SelectionIndicator;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement", meta = (AllowPrivateAccess = "true"))
-	UFloatingPawnMovement* MovementComponent;
 	
-	UFUNCTION() // Обязательно помечаем как UFUNCTION
-	void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
 };

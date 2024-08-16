@@ -11,6 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 
 
+
 ARTSCameraPawn::ARTSCameraPawn()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -30,7 +31,6 @@ ARTSCameraPawn::ARTSCameraPawn()
     WASDMovementSpeed = 3000.0f;
 
     UnitSelectionManager = CreateDefaultSubobject<AUnitSelectionManager>(TEXT("UnitSelectionManager"));
-
 }
 
 void ARTSCameraPawn::BeginPlay()
@@ -67,15 +67,12 @@ void ARTSCameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
     PlayerInputComponent->BindAxis("MoveForward", this, &ARTSCameraPawn::MoveForward);
     PlayerInputComponent->BindAxis("MoveRight", this, &ARTSCameraPawn::MoveRight);
     PlayerInputComponent->BindAction("SelectUnit", IE_Pressed, this, &ARTSCameraPawn::SelectUnit);
-    PlayerInputComponent->BindAction("MoveUnits", IE_Pressed, this, &ARTSCameraPawn::MoveSelectedUnits); // Привязка действия для перемещения
-
 }
 
 void ARTSCameraPawn::SelectUnit()
 {
     if (UnitSelectionManager && PlayerController)
     {
-        // Проверка состояния Ctrl
         bool bIsCtrlPressed = PlayerController->IsInputKeyDown(EKeys::LeftControl) || PlayerController->IsInputKeyDown(EKeys::RightControl);
         UnitSelectionManager->SelectUnitAtMousePosition(PlayerController, bIsCtrlPressed);
     }
@@ -88,7 +85,7 @@ void ARTSCameraPawn::MoveCamera(const FVector2D& Direction)
     FVector Movement = (ForwardVector * Direction.Y + RightVector * Direction.X) * MovementSpeed * GetWorld()->GetDeltaSeconds();
     
     FVector NewLocation = GetActorLocation() + Movement;
-    NewLocation.Z = GetActorLocation().Z;  // Сохраняем текущую высоту
+    NewLocation.Z = GetActorLocation().Z;
     
     SetActorLocation(NewLocation);
 }
@@ -106,10 +103,8 @@ void ARTSCameraPawn::ZoomIn()
             FVector CameraLocation = GetActorLocation();
             FVector TargetLocation = CameraLocation + WorldDirection * ZoomSpeed;
 
-            // Установить ограничение для приближения по высоте (ось Z)
             TargetLocation.Z = FMath::Clamp(TargetLocation.Z, MinZoomHeight, MaxZoomHeight);
 
-            // Перемещаем камеру к новой позиции
             SetActorLocation(TargetLocation);
         }
     }
@@ -128,25 +123,21 @@ void ARTSCameraPawn::ZoomOut()
             FVector CameraLocation = GetActorLocation();
             FVector TargetLocation = CameraLocation + WorldDirection * -ZoomSpeed;
 
-            // Установить ограничение для отдаления по высоте (ось Z)
             TargetLocation.Z = FMath::Clamp(TargetLocation.Z, MinZoomHeight, MaxZoomHeight);
 
-            // Перемещаем камеру к новой позиции
             SetActorLocation(TargetLocation);
         }
     }
 }
+
 void ARTSCameraPawn::MoveForward(float Value)
 {
     if (Value != 0.0f)
     {
         FVector Direction = FVector::ZeroVector;
-
-        // Используем направление вперед, но игнорируем компонент Z для движения по плоскости
         Direction.X = CameraComponent->GetForwardVector().X;
         Direction.Y = CameraComponent->GetForwardVector().Y;
-
-        AddMovementInput(Direction, Value * WASDMovementSpeed / MovementSpeed); // Используем WASDMovementSpeed
+        AddMovementInput(Direction, Value * WASDMovementSpeed / MovementSpeed);
     }
 }
 
@@ -155,14 +146,12 @@ void ARTSCameraPawn::MoveRight(float Value)
     if (Value != 0.0f)
     {
         FVector Direction = FVector::ZeroVector;
-
-        // Используем направление вправо, но игнорируем компонент Z для движения по плоскости
         Direction.X = CameraComponent->GetRightVector().X;
         Direction.Y = CameraComponent->GetRightVector().Y;
-
-        AddMovementInput(Direction, Value * WASDMovementSpeed / MovementSpeed); // Используем WASDMovementSpeed
+        AddMovementInput(Direction, Value * WASDMovementSpeed / MovementSpeed);
     }
 }
+
 void ARTSCameraPawn::CheckMouseAtScreenEdge()
 {
     if (PlayerController)
@@ -177,7 +166,6 @@ void ARTSCameraPawn::CheckMouseAtScreenEdge()
 
         if (bIsMousePositionValid)
         {
-            // Проверка нахождения курсора у границ экрана
             if (MouseX <= EdgeScrollThreshold)
             {
                 MovementDirection.X = -1.0f;
@@ -197,39 +185,9 @@ void ARTSCameraPawn::CheckMouseAtScreenEdge()
             }
         }
 
-        // Движение камеры, если курсор упирается в края экрана
         if (!MovementDirection.IsZero())
         {
-            MoveCamera(MovementDirection * EdgeScrollSpeed);  // Используем EdgeScrollSpeed для перемещения
-        }
-    }
-}
-void ARTSCameraPawn::MoveSelectedUnits()
-{
-    if (UnitSelectionManager && PlayerController)
-    {
-        FVector WorldLocation, WorldDirection;
-        if (PlayerController->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
-        {
-            FVector TraceStart = WorldLocation;
-            FVector TraceEnd = TraceStart + (WorldDirection * 10000.0f);
-
-            FHitResult HitResult;
-            FCollisionQueryParams Params;
-            Params.AddIgnoredActor(this);
-
-            if (GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params))
-            {
-                FVector TargetLocation = HitResult.Location;
-                for (AActor* Unit : UnitSelectionManager->GetSelectedUnits())
-                {
-                    AUnit* SelectedUnit = Cast<AUnit>(Unit);
-                    if (SelectedUnit)
-                    {
-                        SelectedUnit->MoveToLocation(TargetLocation);
-                    }
-                }
-            }
+            MoveCamera(MovementDirection * EdgeScrollSpeed);
         }
     }
 }

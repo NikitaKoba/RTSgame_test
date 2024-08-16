@@ -8,7 +8,6 @@
 #include "CameraPawn.generated.h"
 
 UCLASS()
-
 class RTSGAME_API ARTSCameraPawn : public APawn
 {
 	GENERATED_BODY()
@@ -18,8 +17,8 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
 	void SelectUnit();
-	void MoveSelectedUnits();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	UCameraComponent* CameraComponent;
@@ -46,10 +45,11 @@ public:
 	float CameraAngle;
 
 	UPROPERTY(VisibleAnywhere)
-	AUnitSelectionManager* UnitSelectionManager; //
-	
+	AUnitSelectionManager* UnitSelectionManager;
+
 	float EdgeScrollSpeed;
 	float WASDMovementSpeed;
+
 
 protected:
 	virtual void BeginPlay() override;
@@ -61,6 +61,6 @@ private:
 	void MoveForward(float Value);
 	void MoveRight(float Value);
 	void CheckMouseAtScreenEdge();
-    
+
 	APlayerController* PlayerController;
 };
