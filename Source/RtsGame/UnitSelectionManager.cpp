@@ -1,12 +1,19 @@
 #include "UnitSelectionManager.h"
 #include "Selectable.h"
+#include "Settlement.h"
+#include "SettlementWidget.h"
 #include "Unit.h"
 #include "Engine/HitResult.h"
 #include "GameFramework/PlayerController.h"
+#include "Blueprint/UserWidget.h" 
 #include "Engine/World.h"
 
 AUnitSelectionManager::AUnitSelectionManager()
 {
+    LastClickTime = 0.0f;
+    DoubleClickThreshold = 0.3f;
+    static ConstructorHelpers::FClassFinder<UUserWidget> WidgetClassFinder(TEXT("/Game/UI/BP_SettlementWidget"));
+    SettlementWidgetClass = WidgetClassFinder.Class;
 }
 
 
@@ -27,9 +34,7 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
             FCollisionQueryParams Params;
             Params.AddIgnoredActor(this);
 
-            // Добавляем отладочную линию
             GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params);
-            DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Red, false, 2.0f, 0, 1.0f);
 
             if (HitResult.bBlockingHit)
             {
@@ -70,14 +75,56 @@ void AUnitSelectionManager::SelectUnitAtMousePosition(APlayerController* PlayerC
                         SelectedUnits.Add(HitActor);
                     }
                 }
+                else if (ASettlement* Settlement = Cast<ASettlement>(HitActor))
+                {
+                    // Проверяем, является ли это двойным щелчком
+                    float CurrentTime = GetWorld()->GetTimeSeconds();
+                    if (CurrentTime - LastClickTime <= DoubleClickThreshold)
+                    {
+                        DisplaySettlementInfo(Settlement);
+                    }
+                    LastClickTime = CurrentTime;
+                }
                 else
                 {
                     DeselectAllUnits();
+                    if (SettlementWidget)
+                    {
+                        SettlementWidget->RemoveFromViewport();
+                        SettlementWidget = nullptr;
+                    }
                 }
             }
         }
     }
 }
+
+
+void AUnitSelectionManager::DisplaySettlementInfo(ASettlement* Settlement)
+{
+    if (Settlement)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("DisplaySettlementInfo called"));
+
+        if (!SettlementWidget && SettlementWidgetClass)
+        {
+            SettlementWidget = CreateWidget<UUserWidget>(GetWorld(), SettlementWidgetClass);
+            if (SettlementWidget)
+            {
+                SettlementWidget->AddToViewport();
+                UE_LOG(LogTemp, Warning, TEXT("SettlementInfoWidget added to viewport"));
+            }
+        }
+
+        USettlementWidget* SettlementWidgetInstance = Cast<USettlementWidget>(SettlementWidget);
+        if (SettlementWidgetInstance)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Updating Settlement Info"));
+            SettlementWidgetInstance->UpdateSettlementInfo(Settlement->Population, Settlement->Gold, Settlement->Food, Settlement->Wood, Settlement->Stone);
+        }
+    }
+}
+
 void AUnitSelectionManager::DeselectAllUnits()
 {
     for (AActor* Unit : SelectedUnits)

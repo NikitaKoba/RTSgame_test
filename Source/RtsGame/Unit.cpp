@@ -6,6 +6,7 @@
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
 #include "Components/DecalComponent.h"
+#include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 
@@ -31,15 +32,40 @@ AUnit::AUnit()
     SelectionDecal->SetupAttachment(RootComponent);
     SelectionDecal->SetVisibility(false);
     SelectionDecal->SetRelativeRotation(FRotator(-90, 0, 0)); // Декаль на земле
-    SelectionDecal->DecalSize = FVector(200, 200, 200); // Размер декали
+    SelectionDecal->DecalSize = FVector(200, 200, 200); // Размер декал
+
+    MovementRadiusDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("MovementRadiusDecal"));
+    MovementRadiusDecal->SetupAttachment(RootComponent);
+    MovementRadiusDecal->SetVisibility(false);
+    MovementRadiusDecal->SetRelativeRotation(FRotator(-90, 0, 0));  
+
 
     
-    // Настройка поворота персонажа в направлении движения
     GetCharacterMovement()->bOrientRotationToMovement = true; // Автоматический поворот персонажа
     GetCharacterMovement()->RotationRate = FRotator(0.0f, 640.0f, 0.0f); // Скорость поворота
-
+    MovementRadius = 1000.0f;
     // Отключаем поворот через контроллер
     bUseControllerRotationYaw = false;
+
+    PrimaryActorTick.bCanEverTick = true;
+    
+}
+void AUnit::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+    
+}
+void AUnit::StartNewTurn()
+{
+    StepsTakenThisTurn = 0;
+    bCanMove = true;
+    UE_LOG(LogTemp, Warning, TEXT("New turn started: bCanMove = %s"), bCanMove ? TEXT("true") : TEXT("false"));
+}
+
+void AUnit::EndTurn()
+{
+    bCanMove = false;
+    UE_LOG(LogTemp, Warning, TEXT("Turn ended: bCanMove = %s"), bCanMove ? TEXT("true") : TEXT("false"));
 }
 
 
@@ -91,8 +117,8 @@ void AUnit::OnSelected()
     if (SelectionDecal)
     {
         SelectionDecal->SetVisibility(true);
+        MovementRadiusDecal->SetVisibility(true);
     }
-    UE_LOG(LogTemp, Warning, TEXT("Unit selected"));
 }
 
 void AUnit::OnDeselected()
@@ -100,12 +126,45 @@ void AUnit::OnDeselected()
     if (SelectionDecal)
     {
         SelectionDecal->SetVisibility(false);
+        MovementRadiusDecal->SetVisibility(false);
     }
     UE_LOG(LogTemp, Warning, TEXT("Unit deselected"));
 }
 
 void AUnit::MoveToLocation(const FVector& TargetLocation)
 {
+    if (!bCanMove)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Юнит больше не может двигаться в этом ходу."));
+        return;
+    }
+
+    FVector CurrentLocation = GetActorLocation();
+    FVector FlatTargetLocation = FVector(TargetLocation.X, TargetLocation.Y, CurrentLocation.Z);
+
+    float Distance = FVector::Dist(FlatTargetLocation, CurrentLocation);
+
+    UE_LOG(LogTemp, Warning, TEXT("Целевая точка: %s"), *FlatTargetLocation.ToString());
+    UE_LOG(LogTemp, Warning, TEXT("Текущая позиция юнита: %s"), *CurrentLocation.ToString());
+    UE_LOG(LogTemp, Warning, TEXT("Рассчитанное расстояние: %f, Максимальный радиус: %f"), Distance, MovementRadius);
+
+    if (Distance > MovementRadius)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Целевая точка находится за пределами радиуса движения."));
+        return;
+    }
+
+    // Проверка на радиус движения
+    if (StepsTakenThisTurn + Distance > MovementRadius)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Недостаточно хода для перемещения в указанное место."));
+        return;
+    }
+
+    // Обновление шагов, если движение успешно
+    StepsTakenThisTurn += Distance;
+
+    // Основная часть метода остается без изменений
     AAIController* AIController = Cast<AAIController>(GetController());
     if (!AIController)
     {
@@ -119,13 +178,15 @@ void AUnit::MoveToLocation(const FVector& TargetLocation)
         UE_LOG(LogTemp, Error, TEXT("NavMesh не найден для юнита %s"), *GetName());
         return;
     }
+
+    // Поворачиваем юнит в сторону цели
     FVector Direction = (TargetLocation - GetActorLocation()).GetSafeNormal();
     FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
-    NewRotation.Pitch = 0.0f;  // Убираем наклон
+    NewRotation.Pitch = 0.0f;
     NewRotation.Roll = 0.0f;
     SetActorRotation(NewRotation);
 
-    // Проверяем, находится ли юнит на NavMesh
+    // Проверка нахождения юнита на NavMesh
     FNavLocation UnitNavLocation;
     if (!NavSys->ProjectPointToNavigation(GetActorLocation(), UnitNavLocation, FVector(100.0f, 100.0f, 500.0f)))
     {
@@ -133,7 +194,7 @@ void AUnit::MoveToLocation(const FVector& TargetLocation)
         return;
     }
 
-    // Проверяем, находится ли целевая точка на NavMesh
+    // Проверка нахождения целевой точки на NavMesh
     FNavLocation TargetNavLocation;
     if (!NavSys->ProjectPointToNavigation(TargetLocation, TargetNavLocation, FVector(100.0f, 100.0f, 500.0f)))
     {
@@ -141,13 +202,13 @@ void AUnit::MoveToLocation(const FVector& TargetLocation)
         return;
     }
 
-    // Пытаемся найти путь
+    // Поиск пути
     UNavigationPath* NavPath = UNavigationSystemV1::FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), TargetNavLocation.Location);
     if (!NavPath || !NavPath->IsValid() || NavPath->IsPartial())
     {
         UE_LOG(LogTemp, Error, TEXT("Не удалось найти полный путь для юнита %s от %s до %s"), 
                *GetName(), *GetActorLocation().ToString(), *TargetNavLocation.Location.ToString());
-        
+
         // Попробуем найти ближайшую доступную точку
         FNavLocation NearestNavLocation;
         if (NavSys->GetRandomPointInNavigableRadius(TargetNavLocation.Location, 1000.0f, NearestNavLocation))
@@ -166,15 +227,15 @@ void AUnit::MoveToLocation(const FVector& TargetLocation)
     EPathFollowingRequestResult::Type MoveResult = AIController->MoveToLocation(TargetNavLocation.Location);
     switch (MoveResult)
     {
-        case EPathFollowingRequestResult::Failed:
-            UE_LOG(LogTemp, Error, TEXT("MoveToLocation: Failed для юнита %s. Возможно, путь недоступен или проблемы с NavMesh."), *GetName());
-            break;
-        case EPathFollowingRequestResult::AlreadyAtGoal:
-            UE_LOG(LogTemp, Warning, TEXT("MoveToLocation: AlreadyAtGoal для юнита %s. Юнит уже в целевой точке."), *GetName());
-            break;
-        case EPathFollowingRequestResult::RequestSuccessful:
-            UE_LOG(LogTemp, Warning, TEXT("MoveToLocation: RequestSuccessful для юнита %s. Перемещение началось к %s"), *GetName(), *TargetNavLocation.Location.ToString());
-            break;
+    case EPathFollowingRequestResult::Failed:
+        UE_LOG(LogTemp, Error, TEXT("MoveToLocation: Failed для юнита %s. Возможно, путь недоступен или проблемы с NavMesh."), *GetName());
+        break;
+    case EPathFollowingRequestResult::AlreadyAtGoal:
+        UE_LOG(LogTemp, Warning, TEXT("MoveToLocation: AlreadyAtGoal для юнита %s. Юнит уже в целевой точке."), *GetName());
+        break;
+    case EPathFollowingRequestResult::RequestSuccessful:
+        UE_LOG(LogTemp, Warning, TEXT("MoveToLocation: RequestSuccessful для юнита %s. Перемещение началось к %s"), *GetName(), *TargetNavLocation.Location.ToString());
+        break;
     }
 
     // Отладочная визуализация пути
@@ -185,6 +246,7 @@ void AUnit::MoveToLocation(const FVector& TargetLocation)
             DrawDebugLine(GetWorld(), NavPath->PathPoints[i], NavPath->PathPoints[i + 1], FColor::Green, false, 5.0f, 0, 2.0f);
         }
     }
+
     DrawDebugSphere(GetWorld(), GetActorLocation(), 50.0f, 12, FColor::Blue, false, 5.0f);
     DrawDebugSphere(GetWorld(), TargetLocation, 50.0f, 12, FColor::Red, false, 5.0f);
 
@@ -205,5 +267,4 @@ void AUnit::MoveToLocation(const FVector& TargetLocation)
             UE_LOG(LogTemp, Error, TEXT("Юнит НЕ на NavMesh! Текущая позиция: %s"), *GetActorLocation().ToString());
         }
     }
-    
 }

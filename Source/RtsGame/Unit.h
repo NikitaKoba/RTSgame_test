@@ -4,6 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "Selectable.h"
 #include "GameFramework/Character.h"
+#include "Components/SphereComponent.h"
 #include "Runtime/AIModule/Classes/AIController.h"
 #include "Runtime/AIModule/Classes/Navigation/PathFollowingComponent.h"
 #include "Runtime/AIModule/Classes/AITypes.h"
@@ -24,12 +25,22 @@ public:
 	void MoveToLocation(const FVector& TargetLocation);
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Selection", meta = (AllowPrivateAccess = "true"))
 	UBillboardComponent* SelectionIndicator;
-
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Selection")
 	UDecalComponent* SelectionDecal;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UDecalComponent* MovementRadiusDecal;
+	float StepsTakenThisTurn;  // Сколько юнит прошел за этот ход
+	bool bCanMove;             // Может ли юнит двигаться в этом ходу
+
+	// Методы для обработки начала и конца хода
+	void StartNewTurn();       // Начало нового хода
+	void EndTurn();    
+	float MovementRadius;  // Определяем это в классе AUnit
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 
 private:
 	UMaterialInstanceDynamic* DynamicMaterialInstance;

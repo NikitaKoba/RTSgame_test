@@ -26,7 +26,7 @@ ARTSCameraPawn::ARTSCameraPawn()
     MinZoomHeight = 500.0f;
     MaxZoomHeight = 5000.0f;
     EdgeScrollThreshold = 10.0f;
-    CameraAngle = -60.0f;
+    CameraAngle = -7.0f;
     EdgeScrollSpeed = 2.0f;
     WASDMovementSpeed = 3000.0f;
 
@@ -48,8 +48,6 @@ void ARTSCameraPawn::BeginPlay()
     FRotator NewRotation = FRotator(CameraAngle, 0.0f, 0.0f);
     CameraComponent->SetRelativeRotation(NewRotation);
     
-    FVector NewLocation = FVector(0.0f, 0.0f, MaxZoomHeight);
-    SetActorLocation(NewLocation);
 }
 
 void ARTSCameraPawn::Tick(float DeltaTime)
